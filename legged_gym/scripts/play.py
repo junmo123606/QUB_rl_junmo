@@ -1,32 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 #
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this
-# list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-# this list of conditions and the following disclaimer in the documentation
-# and/or other materials provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its
-# contributors may be used to endorse or promote products derived from
-# this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-# Copyright (c) 2021 ETH Zurich, Nikita Rudin
+# (라이선스 주석 생략...)
 
 from legged_gym import LEGGED_GYM_ROOT_DIR
 import os
@@ -73,13 +48,27 @@ def play(args):
 
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
+    
     # get robot_type
     robot_type = os.getenv("ROBOT_TYPE")
-    commands_val = to_torch([0.5, 0.0, 0, 0], device=env.device) if robot_type.startswith("PF")\
-        else to_torch([1.0, 0.0, 0.0], device=env.device) if robot_type == "WF_TRON1A" else to_torch([1.5, 0.0, 0.0, 0.0, 0.0])
+    
+    # =====================================================================
+    # [수정된 부분] 조이스틱 명령 하드코딩
+    # [ lin_vel_x (전후), lin_vel_y (좌우), ang_vel_yaw (회전), heading ]
+    # =====================================================================
+    # 아래 숫자를 바꿔가며 테스트해 보세요!
+    # 예시 1: 게걸음 테스트 -> [0.0, 0.3, 0.0, 0.0]
+    # 예시 2: 제자리 돌기 -> [0.0, 0.0, 0.5, 0.0]
+    # 예시 3: 대각선 걷기 -> [0.3, 0.3, 0.0, 0.0]
+    
+    commands_val = to_torch([0.5, 0.0, 0.0], device=env.device) 
+    
+    # =====================================================================
+
     action_scale = env.cfg.control.action_scale_pos if robot_type == "WF_TRON1A"\
         else env.cfg.control.action_scale
     obs, obs_history, commands, _ = env.get_observations()
+    
     # load policy
     train_cfg.runner.resume = True
     train_cfg.runner.load_run = args.load_run
@@ -124,15 +113,14 @@ def play(args):
     stop_rew_log = (
         env.max_episode_length + 1
     )  # number of steps before print average episode rewards
-    # camera_position = np.array(env_cfg.viewer.pos, dtype=np.float64)
-    # camera_vel = np.array([1.0, 1.0, 0.0])
-    # camera_direction = np.array(env_cfg.viewer.lookat) - np.array(env_cfg.viewer.pos)
+
     img_idx = 0
     est = None
     for i in range(10 * int(env.max_episode_length)):
         est = encoder(obs_history)
         actions = policy(torch.cat((est, obs, commands), dim=-1).detach())
 
+        # 여기서 위에서 우리가 설정한 commands_val (게걸음 등)을 매 스텝 강제로 주입합니다.
         env.commands[:, :] = commands_val
 
         obs, rews, dones, infos, obs_history, commands, _ = env.step(
@@ -157,7 +145,6 @@ def play(args):
             )
             target_position[2] = 0
             camera_position = target_position + camera_offset
-            # env.set_camera(camera_position, target_position)
 
         if i < stop_state_log:
             logger.log_states(
@@ -184,7 +171,6 @@ def play(args):
                     .numpy(),
                 }
             )
-            # print(torch.sum(env.power[robot_index, :]).item())
             if est != None:
                 logger.log_states(
                     {

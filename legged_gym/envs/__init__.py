@@ -41,14 +41,24 @@ if not robot_type:
     print("\033[1m\033[31mError: Please set the ROBOT_TYPE using 'export ROBOT_TYPE=<robot_type>'.\033[0m")
     sys.exit(1)
 
-if robot_type.startswith("PF"):
+# ===== kubot 분기 추가 =====
+if robot_type == "kubot":
+    from .kubot_flat.kubot_flat import KubotEnv
+    from .kubot_flat.kubot_flat_config import KubotCfg, KubotCfgPPO
+    task_registry.register("kubot_flat", KubotEnv, KubotCfg(), KubotCfgPPO())
+
+    from .qub_flat.qub_flat import QubEnv
+    from .qub_flat.qub_flat_config import QubCfg, QubCfgPPO
+    task_registry.register("qub_flat", QubEnv, QubCfg(), QubCfgPPO())
+
+elif robot_type.startswith("PF"):
     if robot_type in ["PF_TRON1A", "PF_P441A", "PF_P441B", "PF_P441C", "PF_P441C2"]:
         from legged_gym.envs.pointfoot_flat.pointfoot_flat import BipedPF
         from legged_gym.envs.pointfoot_flat.pointfoot_flat_config import BipedCfgPF, BipedCfgPPOPF
         task_registry.register("pointfoot_flat", BipedPF, BipedCfgPF(), BipedCfgPPOPF())
     else:
-        print("\033[1m\033[31mError: Input ROBOT_TYPE={}".format(robot_type), 
-        "is not among valid robot types PF_TRON1A, PF_P441A, PF_P441B, PF_P441C, PF_P441C2.\033[0m")
+        print("\033[1m\033[31mError: Input ROBOT_TYPE={}".format(robot_type),
+              "is not among valid robot types PF_TRON1A, PF_P441A, PF_P441B, PF_P441C, PF_P441C2.\033[0m")
         sys.exit(1)
 
 elif robot_type == "SF_TRON1A":
@@ -62,6 +72,17 @@ elif robot_type == "WF_TRON1A":
     task_registry.register("pointfoot_flat", BipedWF, BipedCfgWF(), BipedCfgPPOWF())
 
 else:
-    print("\033[1m\033[31mError: Input ROBOT_TYPE={}".format(robot_type), 
-        "is not among valid robot types PF_P441A, PF_P441B, PF_P441C, PF_P441C2, PF_TRON1A, WF_TRON1A and SF_TRON1A.\033[0m")
+    print("\033[1m\033[31mError: Input ROBOT_TYPE={}".format(robot_type),
+          "is not among valid robot types kubot, PF_*, WF_TRON1A, SF_TRON1A.\033[0m")
     sys.exit(1)
+
+    
+from .qub_flat.qub_flat import QubEnv
+from .qub_flat.qub_flat_config import QubCfg, QubCfgPPO # qub_config를 qub_flat_config로 수정
+
+task_registry.register( "qub_flat", QubEnv, QubCfg(), QubCfgPPO() )
+
+from .kubot_flat.kubot_flat import KubotEnv
+from .kubot_flat.kubot_flat_config import KubotCfg, KubotCfgPPO
+
+task_registry.register( "kubot_flat", KubotEnv, KubotCfg(), KubotCfgPPO() )
